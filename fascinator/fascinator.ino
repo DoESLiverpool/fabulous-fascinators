@@ -3,7 +3,6 @@
 
 
 #include "I2Cdev.h"
-#include "MPU6050_6Axis_MotionApps20.h"
 #include "Wire.h"
 #include <Adafruit_NeoPixel.h>
 
@@ -12,21 +11,10 @@
 #define LED_COUNT 6
 #define FRAMES_PER_SECOND 60
 
-
-MPU6050 mpu;
 Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ400);
 
-
-bool initialization = false;  // set true if DMP init was successful
-uint8_t mpuIntStatus;   // holds actual interrupt status byte from MPU
-uint8_t devStatus;      // return status after each device operation (0 = success, !0 = error)
-uint16_t packetSize;    // expected DMP packet size (default is 42 bytes)
-uint16_t fifoCount;     // count of all bytes currently in FIFO
-uint8_t fifoBuffer[64]; // FIFO storage buffer
-Quaternion q;           // [w, x, y, z]         quaternion container
-VectorFloat gravity;    // [x, y, z]            gravity vector
-float ypr[3];           // [yaw, pitch, roll]   yaw/pitch/roll container and gravity vector
-volatile bool mpuInterrupt = false; // indicates whether MPU interrupt pin has gone high
+const int MPU_addr = 0x68; // I2C address of the MPU-6050
+int16_t AcX, AcY, AcZ, Tmp, GyX, GyY, GyZ;
 
 
 void setup() {
@@ -34,59 +22,49 @@ void setup() {
     strip.begin();
     strip.show(); // Turn OFF all pixels
     strip.setBrightness(255);
-//    initialization = initializeGyroscope();
+
+    Wire.begin();
+
+    Wire.beginTransmission(MPU_addr);
+    Wire.write(0x6B);
+    Wire.write(0); // wakes up the MPU-6050
+    Wire.endTransmission(true);
+
+//  Serial.begin(9600);
 }
 
 
 void loop() {
 
-#if 0
-    if (!initialization) {
-        return;
-    }
-    
-    mpuInterrupt = false;
-    mpuIntStatus = mpu.getIntStatus();
-    fifoCount = mpu.getFIFOCount();
-    
-    if (hasFifoOverflown(mpuIntStatus, fifoCount)) {
-        mpu.resetFIFO();
-        return;
-    }
+  Wire.beginTransmission(MPU_addr);
+  Wire.write(0x3B);
+  Wire.endTransmission(false);
 
-    if (mpuIntStatus & 0x02) {
-        while (fifoCount < packetSize) {
-            fifoCount = mpu.getFIFOCount();
-        }
-        mpu.getFIFOBytes(fifoBuffer, packetSize);        
-        fifoCount -= packetSize;
-        mpu.dmpGetQuaternion(&q, fifoBuffer);
-        mpu.dmpGetGravity(&gravity, &q);
-        mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
+  Wire.requestFrom(MPU_addr, 14, true); // get 14 bytes of data from the MPU-6050
+  AcX = Wire.read() <<8 | Wire.read();
+  AcY = Wire.read() <<8 | Wire.read();
+  AcZ = Wire.read() <<8 | Wire.read();
+//  Tmp = Wire.read() <<8 | Wire.read();
+//  GyX = Wire.read() <<8 | Wire.read();
+//  GyY = Wire.read() <<8 | Wire.read();
+//  GyZ = Wire.read() <<8 | Wire.read();
 
-//        Serial.print("yawPitchRoll ");
-//        Serial.print(ypr[0], 3);
-//        Serial.print(" ");
-//        Serial.print(ypr[1], 3);
-//        Serial.print(" ");
-//        Serial.print(ypr[2], 3);
-//        Serial.println("");
+//  Tmp = Tmp / 340.00 + 36.53; // convert temperature to degrees C
+//
+//  Serial.print("AcX = "); Serial.print(AcX);
+//  Serial.print(" | AcY = "); Serial.print(AcY);
+//  Serial.print(" | AcZ = "); Serial.print(AcZ);
+//  Serial.print(" | Tmp = "); Serial.print(Tmp);
+//  Serial.print(" | GyX = "); Serial.print(GyX);
+//  Serial.print(" | GyY = "); Serial.print(GyY);
+//  Serial.print(" | GyZ = "); Serial.println(GyZ);
 
-        int adjustment = 200/3;
-        setRandomLedColour(
-            abs(ypr[0]) * adjustment,
-            abs(ypr[1]) * adjustment,
-            abs(ypr[2]) * adjustment
-        );    
-    }
-#else
-        setRandomLedColour(
-           random(255),random(255),random(255)
-           );    
-#endif
+  delay(150);
 
-    delay(100);
-//    mpu.resetFIFO();
+  Serial.print(".");
+
+  setRandomLedColour((uint8_t)(AcX >> 9), (uint8_t)(AcY >> 9), (uint8_t)(AcZ >> 9));
+
 }
 
 
@@ -98,41 +76,15 @@ void setStripColour(float red, float green, float blue) {
     strip.show();
 }
 
-void setRandomLedColour(float red, float green, float blue) {
-    for(int i=0; i<strip.numPixels(); i++) {
+void setRandomLedColour(uint8_t red, uint8_t green, uint8_t blue) {
+    
+    for (int j=0; j< 10; j++) {
+      for(int i=0; i<strip.numPixels(); i++) {
         strip.setPixelColor(i, strip.Color(0,0,0));
     }
+
     strip.setPixelColor( random(0, LED_COUNT), strip.Color(red, green, blue) );
     strip.show();
-}
-
-
-
-bool initializeGyroscope() {
-    Wire.begin();
-    TWBR = 24;  
-    mpu.initialize();
-    devStatus = mpu.dmpInitialize();
-    mpu.setXGyroOffset(220);
-    mpu.setYGyroOffset(76);
-    mpu.setZGyroOffset(-85);
-    mpu.setZAccelOffset(1788);
-    if (devStatus != 0) {
-        return false;
+    delay(100);
     }
-    mpu.setDMPEnabled(true);
-    attachInterrupt(0, dmpDataReady, RISING);
-    mpuIntStatus = mpu.getIntStatus();
-    packetSize = mpu.dmpGetFIFOPacketSize();
-    return true;
-}
-
-
-void dmpDataReady() {
-    mpuInterrupt = true;
-}
-
-
-boolean hasFifoOverflown(int mpuIntStatus, int fifoCount) {
-    return mpuIntStatus & 0x10 || fifoCount == 1024;
 }
