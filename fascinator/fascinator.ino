@@ -1,8 +1,6 @@
 // https://www.hackster.io/danionescu/gyroscope-fun-with-neopixel-ring-3a0b84
 // https://github.com/ElectronicCats/mpu6050
 
-
-#include "I2Cdev.h"
 #include "Wire.h"
 #include <Adafruit_NeoPixel.h>
 
@@ -18,24 +16,20 @@ int16_t AcX, AcY, AcZ, Tmp, GyX, GyY, GyZ;
 
 
 void setup() {
-    Serial.begin(9600);
-    strip.begin();
-    strip.show(); // Turn OFF all pixels
-    strip.setBrightness(255);
+  strip.begin();
+  strip.show(); // Turn OFF all pixels
+  strip.setBrightness(255);
 
-    Wire.begin();
+  Wire.begin();
 
-    Wire.beginTransmission(MPU_addr);
-    Wire.write(0x6B);
-    Wire.write(0); // wakes up the MPU-6050
-    Wire.endTransmission(true);
-
-//  Serial.begin(9600);
+  Wire.beginTransmission(MPU_addr);
+  Wire.write(0x6B);
+  Wire.write(0); // wakes up the MPU-6050
+  Wire.endTransmission(true);
 }
 
 
 void loop() {
-
   Wire.beginTransmission(MPU_addr);
   Wire.write(0x3B);
   Wire.endTransmission(false);
@@ -44,47 +38,23 @@ void loop() {
   AcX = Wire.read() <<8 | Wire.read();
   AcY = Wire.read() <<8 | Wire.read();
   AcZ = Wire.read() <<8 | Wire.read();
-//  Tmp = Wire.read() <<8 | Wire.read();
-//  GyX = Wire.read() <<8 | Wire.read();
-//  GyY = Wire.read() <<8 | Wire.read();
-//  GyZ = Wire.read() <<8 | Wire.read();
+  // Tmp = Wire.read() <<8 | Wire.read();
+  // GyX = Wire.read() <<8 | Wire.read();
+  // GyY = Wire.read() <<8 | Wire.read();
+  // GyZ = Wire.read() <<8 | Wire.read();
 
-//  Tmp = Tmp / 340.00 + 36.53; // convert temperature to degrees C
-//
-//  Serial.print("AcX = "); Serial.print(AcX);
-//  Serial.print(" | AcY = "); Serial.print(AcY);
-//  Serial.print(" | AcZ = "); Serial.print(AcZ);
-//  Serial.print(" | Tmp = "); Serial.print(Tmp);
-//  Serial.print(" | GyX = "); Serial.print(GyX);
-//  Serial.print(" | GyY = "); Serial.print(GyY);
-//  Serial.print(" | GyZ = "); Serial.println(GyZ);
+  // Tmp = Tmp / 340.00 + 36.53; // convert temperature to degrees C
 
   delay(150);
-
-  Serial.print(".");
-
-  setRandomLedColour((uint8_t)(AcX >> 9), (uint8_t)(AcY >> 9), (uint8_t)(AcZ >> 9));
-
+  setRandomLedColour( (uint8_t)(AcX >> 9), (uint8_t)(AcY >> 9), (uint8_t)(AcZ >> 9) );
 }
 
-
-void setStripColour(float red, float green, float blue) {
-
-    for(int i=0; i<strip.numPixels(); i++) {
-        strip.setPixelColor(i, strip.Color(red, green, blue));
-    }
-    strip.show();
-}
 
 void setRandomLedColour(uint8_t red, uint8_t green, uint8_t blue) {
-    
-    for (int j=0; j< 10; j++) {
-      for(int i=0; i<strip.numPixels(); i++) {
-        strip.setPixelColor(i, strip.Color(0,0,0));
-    }
+  for(int i=0; i<strip.numPixels(); i++) {
+    strip.setPixelColor(i, strip.Color(0, 0, 0));
+  }
 
-    strip.setPixelColor( random(0, LED_COUNT), strip.Color(red, green, blue) );
-    strip.show();
-    delay(100);
-    }
+  strip.setPixelColor( random(0, LED_COUNT), strip.Color(red, green, blue) );
+  strip.show();
 }
